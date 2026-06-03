@@ -1,12 +1,15 @@
 package com.example.connect.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import com.example.connect.network.HRLeave
@@ -42,7 +45,7 @@ fun HRLeavesScreen(onNavigate: (NavKey) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Approve Leaves") },
+                title = { Text("Approve Leaves", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -54,15 +57,22 @@ fun HRLeavesScreen(onNavigate: (NavKey) -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (isLoading) {
-                CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else if (statusMessage.isNotEmpty()) {
-                Text(statusMessage, color = MaterialTheme.colorScheme.error)
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text(statusMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
+                }
             } else {
-                LazyColumn {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     items(leaves) { leave ->
                         LeaveItem(leave) { newStatus ->
                             coroutineScope.launch {
@@ -85,25 +95,33 @@ fun HRLeavesScreen(onNavigate: (NavKey) -> Unit) {
 @Composable
 fun LeaveItem(leave: HRLeave, onUpdateStatus: (String) -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("${leave.employee_name} - ${leave.date}", style = MaterialTheme.typography.titleMedium)
-            Text("Type: ${leave.leave_type}", style = MaterialTheme.typography.bodyMedium)
-            Text("Reason: ${leave.reason}", style = MaterialTheme.typography.bodyMedium)
-            Text("Status: ${leave.status}", style = MaterialTheme.typography.bodyMedium, color = if (leave.status == "Pending") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(leave.employee_name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Surface(
+                    color = if (leave.status == "Pending") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(leave.status, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = if (leave.status == "Pending") MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("${leave.leave_type} - ${leave.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
+            Text(leave.reason, style = MaterialTheme.typography.bodyMedium)
             
             if (leave.status == "Pending") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onUpdateStatus("Approved") }, modifier = Modifier.weight(1f)) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { onUpdateStatus("Approved") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                         Text("Approve")
                     }
-                    Button(onClick = { onUpdateStatus("Rejected") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                    Button(onClick = { onUpdateStatus("Rejected") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), shape = RoundedCornerShape(12.dp)) {
                         Text("Reject")
                     }
                 }

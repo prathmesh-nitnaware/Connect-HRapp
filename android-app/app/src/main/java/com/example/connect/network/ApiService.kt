@@ -30,6 +30,8 @@ data class HRLeaveUpdateRequest(val status: String)
 
 data class HRAttendanceRecord(val id: String, val employee_name: String, val date: String, val punch_in: String, val punch_out: String)
 
+data class HRAnalyticsResponse(val totalEmployees: Int, val pendingLeaves: Int, val todayAttendance: Int)
+
 interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
@@ -69,4 +71,7 @@ interface ApiService {
 
     @GET("hr/attendance")
     suspend fun getHRAttendance(@Header("Authorization") token: String): Response<List<HRAttendanceRecord>>
+
+    @GET("hr/analytics")
+    suspend fun getHRAnalytics(@Header("Authorization") token: String): Response<HRAnalyticsResponse>
 }

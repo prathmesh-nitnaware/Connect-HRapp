@@ -36,6 +36,8 @@ def token_required(f):
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
             current_user = db.employees.find_one({'_id': ObjectId(data['user_id'])})
             if not current_user:
+                current_user = db.hr_users.find_one({'_id': ObjectId(data['user_id'])})
+            if not current_user:
                 return {'message': 'Invalid user token'}, 401
         except Exception as e:
             return {'message': 'Token is invalid'}, 401
@@ -53,7 +55,7 @@ def hr_required(f):
             return {'message': 'Token is missing'}, 401
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user = db.employees.find_one({'_id': ObjectId(data['user_id'])})
+            current_user = db.hr_users.find_one({'_id': ObjectId(data['user_id'])})
             if not current_user or current_user.get('role') != 'HR':
                 return {'message': 'Invalid user token or HR access required'}, 403
         except Exception as e:
@@ -72,17 +74,26 @@ class Signup(Resource):
         name = data.get('name')
         role = data.get('role', 'employee')
         
-        if db.employees.find_one({'email': email}):
-            return {'message': 'User already exists'}, 400
-            
-        hashed_password = generate_password_hash(password)
-        db.employees.insert_one({
-            'name': name,
-            'email': email,
-            'password': hashed_password,
-            'role': role,
-            'department': 'Unassigned'
-        })
+        if role == 'HR':
+            if db.hr_users.find_one({'email': email}):
+                return {'message': 'User already exists'}, 400
+            db.hr_users.insert_one({
+                'name': name,
+                'email': email,
+                'password': hashed_password,
+                'role': role,
+                'department': 'Unassigned'
+            })
+        else:
+            if db.employees.find_one({'email': email}):
+                return {'message': 'User already exists'}, 400
+            db.employees.insert_one({
+                'name': name,
+                'email': email,
+                'password': hashed_password,
+                'role': role,
+                'department': 'Unassigned'
+            })
         
         return {'message': 'User created successfully'}, 201
 
@@ -96,6 +107,8 @@ class Login(Resource):
         password = data.get('password')
         
         user = db.employees.find_one({'email': email})
+        if not user:
+            user = db.hr_users.find_one({'email': email})
         
         if not user or not check_password_hash(user['password'], password):
             return {'message': 'Invalid credentials'}, 401
@@ -301,11 +314,26 @@ class HRAttendance(Resource):
             })
         return result, 200
 
+class HRAnalytics(Resource):
+    @hr_required
+    def get(self, current_user):
+        total_employees = db.employees.count_documents({})
+        pending_leaves = db.leaves.count_documents({'status': 'Pending'})
+        today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_attendance = db.attendance.count_documents({'date': today})
+        
+        return {
+            'totalEmployees': total_employees,
+            'pendingLeaves': pending_leaves,
+            'todayAttendance': today_attendance
+        }, 200
+
 api.add_resource(HREmployees, '/api/hr/employees')
 api.add_resource(HREmployeeDetail, '/api/hr/employees/<string:employee_id>')
 api.add_resource(HRLeaves, '/api/hr/leaves')
 api.add_resource(HRLeaveDetail, '/api/hr/leaves/<string:leave_id>')
 api.add_resource(HRAttendance, '/api/hr/attendance')
+api.add_resource(HRAnalytics, '/api/hr/analytics')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

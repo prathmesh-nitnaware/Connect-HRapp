@@ -1,12 +1,17 @@
 package com.example.connect.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import com.example.connect.network.HREmployee
@@ -48,11 +53,10 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
         loadEmployees()
     }
 
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Employees") },
+                title = { Text("Manage Employees", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -60,8 +64,13 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showHireDialog = true }) {
-                Text("+")
+            FloatingActionButton(
+                onClick = { showHireDialog = true },
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("+", style = MaterialTheme.typography.headlineMedium)
             }
         }
     ) { paddingValues ->
@@ -69,15 +78,22 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (isLoading) {
-                CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else if (statusMessage.isNotEmpty()) {
-                Text(statusMessage, color = MaterialTheme.colorScheme.error)
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text(statusMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
+                }
             } else {
-                LazyColumn {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     items(employees) { employee ->
                         EmployeeItem(
                             employee = employee,
@@ -118,13 +134,13 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
 
         AlertDialog(
             onDismissRequest = { showHireDialog = false },
-            title = { Text("Hire New Employee") },
+            title = { Text("Hire New Employee", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
-                    OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newEmail, onValueChange = { newEmail = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newRole, onValueChange = { newRole = it }, label = { Text("Role (employee/HR)") }, modifier = Modifier.fillMaxWidth())
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                    OutlinedTextField(value = newEmail, onValueChange = { newEmail = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                    OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                    OutlinedTextField(value = newRole, onValueChange = { newRole = it }, label = { Text("Role (employee/HR)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
                 }
             },
             confirmButton = {
@@ -135,7 +151,7 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
                             val token = SessionManager.token ?: ""
                             val res = RetrofitClient.instance.createHREmployee(token, SignupRequest(newName, newEmail, newPassword, newRole))
                             if (res.isSuccessful) {
-                                loadEmployees() // Refresh the list
+                                loadEmployees()
                             } else {
                                 statusMessage = "Failed to hire employee"
                             }
@@ -143,10 +159,10 @@ fun HREmployeesScreen(onNavigate: (NavKey) -> Unit) {
                             statusMessage = "Error hiring: ${e.message}"
                         }
                     }
-                }) { Text("Hire") }
+                }, shape = RoundedCornerShape(12.dp)) { Text("Hire") }
             },
             dismissButton = {
-                Button(onClick = { showHireDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showHireDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -158,44 +174,55 @@ fun EmployeeItem(employee: HREmployee, onUpdateDept: (String) -> Unit, onDelete:
     val departments = listOf("IT", "HR", "Sales", "Marketing", "Engineering", "Unassigned")
     
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(employee.name, style = MaterialTheme.typography.titleMedium)
-            Text(employee.email, style = MaterialTheme.typography.bodyMedium)
-            Text("Role: ${employee.role}", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Dept: ${employee.department}", modifier = Modifier.weight(1f))
-                Box {
-                    Button(onClick = { expanded = true }) {
-                        Text("Change Dept")
-                    }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        departments.forEach { dept ->
-                            DropdownMenuItem(
-                                text = { Text(dept) },
-                                onClick = {
-                                    expanded = false
-                                    onUpdateDept(dept)
-                                }
-                            )
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(employee.name.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(employee.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(employee.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(employee.department, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                
+                Row {
+                    Box {
+                        TextButton(onClick = { expanded = true }) {
+                            Text("Change Dept")
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            departments.forEach { dept ->
+                                DropdownMenuItem(
+                                    text = { Text(dept) },
+                                    onClick = { expanded = false; onUpdateDept(dept) }
+                                )
+                            }
                         }
                     }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete")
+                    TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text("Delete")
+                    }
                 }
             }
         }
