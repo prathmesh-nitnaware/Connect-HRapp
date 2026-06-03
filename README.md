@@ -47,5 +47,4 @@ A central `SessionManager` securely retains the authentication JWT token locally
 * `POST /api/leave` - Apply for a new leave request.
 * `GET /api/leave` - Retrieve leave history status.
 
-## Documentation
-* See [run.md](./run.md) for detailed step-by-step instructions on executing the backend server and running the Android application locally.
+
