@@ -1,1 +1,29 @@
-backend/.env
+# Environment variables & secrets
+.env
+.env.*
+server/.env
+server/.env.*
+
+# Flutter & Dart build artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Server build & dependencies
+server/.dart_tool/
+server/build/
+server/.packages
+
+# IDE & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log
+*.iml
+android/.gradle/
+android/local.properties
