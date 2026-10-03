@@ -22,57 +22,50 @@ Rather than adopting a fragmented polyglot stack, the platform uses a **Unified 
 
 ## 2. High-Level Architectural Blueprint
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    FLUTTER CLIENT SUBSYSTEM                                      │
-│                                                                                                  │
-│   ┌───────────────────────────┐    ┌───────────────────────────┐    ┌─────────────────────────┐  │
-│   │   Employee Portal UI      │    │    HR Command Center      │    │  Design System Tokens   │  │
-│   │  (Smart Punch, Slips, etc)│    │ (Analytics, Approval, etc)│    │(Material 3 / Impeller)  │  │
-│   └─────────────┬─────────────┘    └─────────────┬─────────────┘    └────────────┬────────────┘  │
-│                 │                                │                               │               │
-│                 ▼                                ▼                               ▼               │
-│   ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│   │                      Reactive State Management Layer (MultiProvider Tree)                 │  │
-│   │  AuthProvider • EmployeeProvider • HRProvider • PayrollProvider • NotificationProvider    │  │
-│   └──────────────────────────────────────────────┬────────────────────────────────────────────┘  │
-│                                                  │                                               │
-│                                                  ▼                                               │
-│   ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│   │                       Client Networking & Security Infrastructure                         │  │
-│   │     ApiService (HTTP Connection Pool) • SessionService (Encrypted Bearer JWT Cache)      │  │
-│   └──────────────────────────────────────────────┬────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┼───────────────────────────────────────────────┘
-                                                   │ HTTPS / TLS 1.3
-                                                   │ Authorization: Bearer <HMAC-SHA256 JWT>
-                                                   ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 DART SHELF REST API ENGINE                                       │
-│                                                                                                  │
-│   ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│   │                        Shelf Middleware & Request Pipeline                                │  │
-│   │   Shelf CORS Headers Interceptor ──► AuthMiddleware (JWT Signature & Claims Validator)    │  │
-│   └──────────────────────────────────────────────┬────────────────────────────────────────────┘  │
-│                                                  │                                               │
-│                                                  ▼                                               │
-│   ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│   │                         Asynchronous Controller Registry                                  │  │
-│   │   AuthController • EmployeeController • HRController • PayrollController                  │  │
-│   │   AnnouncementController • ExpenseController • TicketController • DocumentAssetController │  │
-│   │   AnalyticsController • NotificationController                                            │  │
-│   └──────────────────────────────────────────────┬────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┼───────────────────────────────────────────────┘
-                                                   │ Native BSON Driver / Wire Protocol
-                                                   ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                     PERSISTENCE SUBSYSTEM                                        │
-│                                                                                                  │
-│   ┌──────────────────────────────────────────────┐     ┌──────────────────────────────────────┐  │
-│   │       Primary: MongoDB Atlas Cloud           │     │    Fallback: Resilient Memory Store   │  │
-│   │  Collections: employees, hr_users,           │◄───►│  In-Memory Hash Partitioned Storage  │  │
-│   │  attendance, payslips, tickets, etc.         │     │  Automatic failover & auto-seeding   │  │
-│   └──────────────────────────────────────────────┘     └──────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Client ["Flutter Client Subsystem"]
+        UI["UI Layer (Material 3 & Impeller Engine)"]
+        subgraph Providers ["Reactive State (MultiProvider Tree)"]
+            AP["AuthProvider"]
+            EP["EmployeeProvider"]
+            HRP["HRProvider"]
+            PP["PayrollProvider"]
+            NP["NotificationProvider"]
+        end
+        API["ApiService (HTTP Connection Pool)"]
+        Session["SessionService (Encrypted Bearer JWT Cache)"]
+    end
+
+    subgraph Server ["Dart Shelf REST API Engine"]
+        Cors["Shelf CORS Middleware"]
+        AuthM["AuthMiddleware (HMAC-SHA256 Validator)"]
+        subgraph Controllers ["Asynchronous Controller Registry"]
+            AuthC["AuthController"]
+            EmpC["EmployeeController"]
+            HRC["HRController"]
+            PayC["PayrollController"]
+            NotifC["NotificationController"]
+            DocC["DocumentAssetController"]
+            ExpC["ExpenseController"]
+            TickC["TicketController"]
+            AnC["AnalyticsController"]
+        end
+    end
+
+    subgraph Persistence ["Data Persistence Subsystem"]
+        Mongo[("MongoDB Atlas Cloud Database")]
+        MemStore[("In-Memory Failover Store")]
+    end
+
+    UI --> Providers
+    Providers --> API
+    API --> Session
+    API == "HTTPS / Bearer JWT" ==> Cors
+    Cors --> AuthM
+    AuthM --> Controllers
+    Controllers == "BSON Driver" ==> Mongo
+    Mongo -. "Failover Sync" .-> MemStore
 ```
 
 ---
@@ -116,6 +109,16 @@ $$\text{Stored Record} = \text{"sha256\$" } \parallel \text{Salt} \parallel \tex
   $$\text{Total Deductions} = \text{Provident Fund (PF)} + \text{Estimated TDS}$$
   $$\text{Net Pay (Take-Home)} = \text{Monthly Gross} - \text{Total Deductions}$$
   $$\text{Annual Cost-to-Company (CTC)} = \text{Monthly Gross} \times 12$$
+
+```mermaid
+pie title Monthly Compensation Structure Breakdown
+    "Basic Salary (50%)" : 50
+    "House Rent Allowance (25%)" : 25
+    "Special Allowances (12.5%)" : 12.5
+    "Provident Fund (6.25%)" : 6.25
+    "Estimated TDS / Tax (6.25%)" : 6.25
+```
+
 * **Client-Side PDF Document Generation:** Implemented in [PdfGenerator](file:///d:/Connect-HRapp/lib/core/utils/pdf_generator.dart) using low-level `pdf` vector primitives. Renders high-DPI A4 statement layouts with embedded corporate watermarks, tabular breakdown structures, and auto-generated payment receipts ready for direct thermal printing or file sharing.
 
 ---
@@ -128,10 +131,16 @@ $$\text{Stored Record} = \text{"sha256\$" } \parallel \text{Salt} \parallel \tex
   $$d = R \cdot c \quad (\text{where } R = 6,371,000 \text{ meters})$$
   *Perimeter Constraint:* Access is granted only when $d \le 500\text{m}$.
 * **Dynamic Time-Bounded QR Kiosk:** The office reception display polls `/api/employee/qr-code` to render time-sensitive tokens (`CONNECT_HR_OFFICE_CHECKIN_<DATE>_SECURE`). Scanning validates date matching and office proximity.
-* **Shift State Machine:**
-  * `State 0 (Unrecorded)` $\rightarrow$ "Quick Punch In" available.
-  * `State 1 (Punched In, No Punch Out)` $\rightarrow$ Shift Active; displays elapsed timer and "Punch Out" action.
-  * `State 2 (Punched Out)` $\rightarrow$ Workday Completed; locks punch actions for the day and calculates total hours.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unrecorded: Day Starts (00:00)
+    Unrecorded --> ActiveShift: Punch In (GPS / QR / Standard)
+    ActiveShift --> ActiveShift: Work Hours Live Counter Running
+    ActiveShift --> WorkdayCompleted: Punch Out (End Shift)
+    WorkdayCompleted --> WorkdayCompleted: Locked (Stats Aggregated)
+    WorkdayCompleted --> [*]: Day Ends (23:59)
+```
 
 ---
 
@@ -143,15 +152,38 @@ $$\text{Stored Record} = \text{"sha256\$" } \parallel \text{Salt} \parallel \tex
 
 ### 4.4 📊 Expense Claims & Reimbursements Workflow
 * **Attachment Pipeline:** Mobile camera and gallery capture converted to encrypted base64 payload attachments or binary multipart data.
-* **State Transition Graph:**
-  $$\text{Pending Review} \xrightarrow{\text{HR Approve}} \text{Approved} \xrightarrow{\text{Disbursement}} \text{Reimbursed}$$
-  $$\text{Pending Review} \xrightarrow{\text{HR Reject}} \text{Rejected}$$
+
+```mermaid
+flowchart LR
+    Submit["Employee Submits Claim & Receipt"] --> Review{"HR Admin Review"}
+    Review -- "Validate & Approve" --> Approved["Approved for Payout"]
+    Review -- "Invalid / Non-compliant" --> Rejected["Rejected with Reason"]
+    Approved --> Disburse["Finance Payout"] --> Reimbursed["Status: Reimbursed ✅"]
+```
 
 ---
 
 ### 4.5 💬 HR Helpdesk & Live Ticketing Subsystem
 * **Bi-Directional Message Threading:** Employees open tickets under specific categories (`Payroll`, `Hardware`, `Policies`, `General`). Each ticket encapsulates a chronological message thread with sender metadata and timestamps.
-* **Ticket Status Lifecycle:** `Open` $\rightarrow$ `In Progress` $\rightarrow$ `Resolved` $\rightarrow$ `Closed`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Emp as Employee
+    participant App as Connect HR Client
+    participant API as Shelf Server Engine
+    participant DB as MongoDB Atlas
+    actor HR as HR Administrator
+
+    Emp->>App: Submits Ticket (Category: Payroll)
+    App->>API: POST /api/tickets
+    API->>DB: insertOne('tickets')
+    API-->>App: 201 Created (Ticket ID)
+    API->>HR: Dispatches In-App Notification 🔔
+    HR->>API: POST /api/tickets/:id/reply
+    API->>DB: updateOne('tickets', $push: messages)
+    API-->>Emp: Instant Thread Refresh
+```
 
 ---
 
@@ -216,50 +248,84 @@ $$\text{Stored Record} = \text{"sha256\$" } \parallel \text{Salt} \parallel \tex
 
 ## 6. Database Schema & Data Models
 
-```
-                                  MONGODB ATLAS COLLECTIONS
-                                  
-  ┌─────────────────────────┐       ┌──────────────────────────┐       ┌────────────────────────┐
-  │        employees        │       │         hr_users         │       │       attendance       │
-  ├─────────────────────────┤       ├──────────────────────────┤       ├────────────────────────┤
-  │ _id: ObjectId           │       │ _id: ObjectId            │       │ _id: ObjectId          │
-  │ name: String            │       │ name: String             │       │ employee_id: String    │
-  │ email: String (unique)  │       │ email: String (unique)   │       │ employee_name: String  │
-  │ password: String (hash) │       │ password: String (hash)  │       │ date: String (YYYY-MM) │
-  │ role: "employee"        │       │ role: "HR"               │       │ punch_in: String       │
-  │ department: String      │       │ department: "HR"         │       │ punch_out: String      │
-  └─────────────────────────┘       └──────────────────────────┘       │ method: String         │
-                                                                       │ hours_worked: Double   │
-  ┌─────────────────────────┐       ┌──────────────────────────┐       └────────────────────────┘
-  │        payslips         │       │         expenses         │       
-  ├─────────────────────────┤       ├──────────────────────────┤       ┌────────────────────────┐
-  │ _id: ObjectId           │       │ _id: ObjectId            │       │        tickets         │
-  │ employee_id: String     │       │ employee_id: String      │       ├────────────────────────┤
-  │ employee_name: String   │       │ employee_name: String    │       │ _id: ObjectId          │
-  │ month: String           │       │ title: String            │       │ employee_id: String    │
-  │ year: Int               │       │ amount: Double           │       │ employee_name: String  │
-  │ basic_salary: Double    │       │ category: String         │       │ subject: String        │
-  │ hra: Double             │       │ receipt_url: String      │       │ category: String       │
-  │ allowances: Double      │       │ status: String           │       │ status: String         │
-  │ provident_fund: Double  │       └──────────────────────────┘       │ messages: Array<Object>│
-  │ tax_deductions: Double  │                                          └────────────────────────┘
-  │ net_pay: Double         │       ┌──────────────────────────┐       
-  │ status: "Paid"          │       │      notifications       │       ┌────────────────────────┐
-  │ generated_at: String    │       ├──────────────────────────┤       │     announcements      │
-  └─────────────────────────┘       │ _id: ObjectId            │       ├────────────────────────┤
-                                    │ user_id: String          │       │ _id: ObjectId          │
-  ┌─────────────────────────┐       │ title: String            │       │ title: String          │
-  │         leaves          │       │ message: String          │       │ content: String        │
-  ├─────────────────────────┤       │ type: String             │       │ category: String       │
-  │ _id: ObjectId           │       │ is_read: Boolean         │       │ is_pinned: Boolean     │
-  │ employee_id: String     │       │ created_at: String       │       │ author_name: String    │
-  │ employee_name: String   │       └──────────────────────────┘       │ read_by: Array<String> │
-  │ leave_type: String      │                                          └────────────────────────┘
-  │ start_date: String      │
-  │ end_date: String        │
-  │ reason: String          │
-  │ status: String          │
-  └─────────────────────────┘
+```mermaid
+erDiagram
+    EMPLOYEES ||--o{ ATTENDANCE : records
+    EMPLOYEES ||--o{ PAYSLIPS : receives
+    EMPLOYEES ||--o{ LEAVES : applies
+    EMPLOYEES ||--o{ EXPENSES : submits
+    EMPLOYEES ||--o{ TICKETS : opens
+    EMPLOYEES ||--o{ ASSETS : assigned
+    EMPLOYEES ||--o{ NOTIFICATIONS : receives
+
+    EMPLOYEES {
+        ObjectId _id PK
+        string name
+        string email UK
+        string password_hash
+        string role
+        string department
+    }
+
+    HR_USERS {
+        ObjectId _id PK
+        string name
+        string email UK
+        string password_hash
+        string role
+        string department
+    }
+
+    ATTENDANCE {
+        ObjectId _id PK
+        string employee_id FK
+        string date
+        string punch_in
+        string punch_out
+        string method
+        double hours_worked
+    }
+
+    PAYSLIPS {
+        ObjectId _id PK
+        string employee_id FK
+        string month
+        int year
+        double basic_salary
+        double hra
+        double allowances
+        double provident_fund
+        double tax_deductions
+        double net_pay
+        string status
+    }
+
+    EXPENSES {
+        ObjectId _id PK
+        string employee_id FK
+        string title
+        double amount
+        string category
+        string status
+    }
+
+    TICKETS {
+        ObjectId _id PK
+        string employee_id FK
+        string subject
+        string category
+        string status
+        array messages
+    }
+
+    ANNOUNCEMENTS {
+        ObjectId _id PK
+        string title
+        string content
+        string category
+        boolean is_pinned
+        array read_by
+    }
 ```
 
 ---
